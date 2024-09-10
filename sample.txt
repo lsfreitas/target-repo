@@ -1,1 +1,5 @@
+<<<<<<< HEAD
 Initial content target
+=======
+Initial content
+>>>>>>> e82435e (add initial content to source repo)
