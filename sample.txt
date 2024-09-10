@@ -1,1 +1,5 @@
+<<<<<<< HEAD
 test
+=======
+Initial content source
+>>>>>>> bfd40ea (change text)
