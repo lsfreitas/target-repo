@@ -1,5 +1,9 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 test
 =======
 Initial content source
 >>>>>>> bfd40ea (change text)
+=======
+Initial content
+>>>>>>> e82435e (add initial content to source repo)
