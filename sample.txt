@@ -1,1 +1,5 @@
+<<<<<<< HEAD
 Initial content
+=======
+Initial content source
+>>>>>>> source_repo/main
