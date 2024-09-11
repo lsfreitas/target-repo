@@ -2,12 +2,6 @@ import os
 import requests
 import git
 
-def configure_git_identity():
-    user_name = os.getenv('GIT_USER_NAME')
-    user_email = os.getenv('GIT_USER_EMAIL')
-    os.system(f'git config --global user.name "{user_name}"')
-    os.system(f'git config --global user.email "{user_email}"')
-
 def clone_repo(repo_url, repo_path):
     try:
         if not os.path.exists(repo_path):
@@ -133,9 +127,6 @@ def remove_remote(repo, remote_name):
     print(f"Removed remote '{remote_name}'")
 
 def main():
-    # Configure Git user identity
-    configure_git_identity()
-
     # Fetch repository URLs and branch names from environment variables or hardcoded for now
     target_repo_url = os.getenv('TARGET_REPO_URL', 'git@github.com:lsfreitas/target-repo.git')
     source_repo_url = os.getenv('SOURCE_REPO_URL', 'git@github.com:lsfreitas/source-repo.git')
