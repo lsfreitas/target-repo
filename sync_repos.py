@@ -55,10 +55,10 @@ def merge_branches(repo, source_branch, aux_branch_name):
     try:
         repo.git.merge(source_branch, '--allow-unrelated-histories')
         print(f"Successfully merged '{source_branch}' into '{aux_branch_name}'")
-        return True, ""
+        return True
     except git.exc.GitCommandError as e:
         print(f"Error during merge: {e.stderr}")
-        return False, e.stderr
+        return False
 
 def push_changes(repo, branch_name):
     try:
@@ -92,15 +92,17 @@ def pull_request_exists(github_token, repo_url, aux_branch, target_branch):
     
     return False
 
-def create_pull_request(github_token, repo_url, aux_branch, target_branch):
+def create_pull_request(github_token, repo_url, aux_branch, target_branch, commit_list, draft=False):
     repo_name = repo_url.split(":")[1].replace(".git", "")
     api_url = f"https://api.github.com/repos/{repo_name}/pulls"
     headers = {"Authorization": f"token {github_token}"}
+    body = f"Opening PR to merge changes from auxiliary branch '{aux_branch}' into '{target_branch}'.\n\nList of commits being merged:\n" + "\n".join(commit_list)
     data = {
         "title": f"Automated PR from {aux_branch} to {target_branch}",
         "head": aux_branch,
         "base": target_branch,
-        "body": f"Opening PR to merge changes from auxiliary branch '{aux_branch}' into '{target_branch}'."
+        "body": body,
+        "draft": draft
     }
 
     if pull_request_exists(github_token, repo_url, aux_branch, target_branch):
@@ -110,43 +112,29 @@ def create_pull_request(github_token, repo_url, aux_branch, target_branch):
     response = requests.post(api_url, headers=headers, json=data)
     if response.status_code == 201:
         pr_url = response.json()['html_url']
-        pr_number = response.json()['number']
         print(f"Pull request created successfully: {pr_url}")
-        return pr_number
+        return pr_url
     else:
         print(f"Failed to create pull request: {response.json()}")
         return None
 
-def get_commits_from_pull_request(github_token, repo_url, pr_number):
-    repo_name = repo_url.split(":")[1].replace(".git", "")
-    api_url = f"https://api.github.com/repos/{repo_name}/pulls/{pr_number}/commits"
-    headers = {"Authorization": f"token {github_token}"}
-
-    response = requests.get(api_url, headers=headers)
-
-    if response.status_code == 200:
-        commits = response.json()
-        commit_list = [f"{commit['sha'][:7]}: {commit['commit']['message']}" for commit in commits]
-        return commit_list
-    else:
-        print(f"Failed to fetch commits from the pull request: {response.status_code} {response.text}")
+def get_commit_messages(repo, source_branch, target_branch):
+    try:
+        commits = repo.git.rev_list(f"{target_branch}..{source_branch}").split('\n')
+        commit_messages = [f"{commit[:7]}: {repo.git.show('-s', '--format=%s', commit)}" for commit in commits if commit]
+        return commit_messages
+    except git.exc.GitCommandError as e:
+        print(f"Error during commit message retrieval: {e.stderr}")
         return []
 
-def update_pull_request_body(github_token, repo_url, pr_number, commit_list):
-    repo_name = repo_url.split(":")[1].replace(".git", "")
-    api_url = f"https://api.github.com/repos/{repo_name}/pulls/{pr_number}"
-    headers = {"Authorization": f"token {github_token}"}
-    
-    # Construct the new body with commits
-    body = "List of commits being merged:\n" + "\n".join(commit_list)
-    
-    data = {"body": body}
-    
-    response = requests.patch(api_url, headers=headers, json=data)
-    if response.status_code == 200:
-        print("Pull request body updated successfully.")
-    else:
-        print(f"Failed to update pull request body: {response.status_code} {response.text}")
+def get_merge_commit_message(repo, aux_branch_name):
+    try:
+        merge_commit = repo.git.rev_list('-n', '1', aux_branch_name).strip()
+        merge_message = f"{merge_commit[:7]}: {repo.git.show('-s', '--format=%s', merge_commit)}"
+        return merge_message
+    except git.exc.GitCommandError as e:
+        print(f"Error during merge commit message retrieval: {e.stderr}")
+        return ""
 
 def remove_remote(repo, remote_name):
     repo.delete_remote(remote_name)
@@ -185,18 +173,20 @@ def main():
         remove_remote(target_repo, 'source_repo')
         return
 
-    merge_success, conflict_details = merge_branches(target_repo, f'source_repo/{source_branch}', aux_branch_name)
+    merge_success = merge_branches(target_repo, f'source_repo/{source_branch}', aux_branch_name)
     if not merge_success:
-        print("Merge failed with conflicts. Manual resolution required.")
+        print("Merge failed with conflicts. Creating draft pull request.")
+        if push_changes(target_repo, aux_branch_name):
+            commit_messages = get_commit_messages(target_repo, f'source_repo/{source_branch}', f'origin/{target_branch}')
+            create_pull_request(github_token, target_repo_url, aux_branch_name, target_branch, commit_messages, draft=True)
         remove_remote(target_repo, 'source_repo')
         return
 
     if push_changes(target_repo, aux_branch_name):
-        pr_number = create_pull_request(github_token, target_repo_url, aux_branch_name, target_branch)
-        if pr_number:
-            # Now that the PR is created, fetch the actual list of commits from the PR and update the body
-            commit_list = get_commits_from_pull_request(github_token, target_repo_url, pr_number)
-            update_pull_request_body(github_token, target_repo_url, pr_number, commit_list)
+        commit_messages = get_commit_messages(target_repo, f'source_repo/{source_branch}', f'origin/{target_branch}')
+        merge_commit_message = get_merge_commit_message(target_repo, aux_branch_name)
+        commit_messages.append(merge_commit_message)
+        create_pull_request(github_token, target_repo_url, aux_branch_name, target_branch, commit_messages)
         remove_remote(target_repo, 'source_repo')
 
 if __name__ == "__main__":
