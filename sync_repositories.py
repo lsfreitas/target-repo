@@ -93,7 +93,14 @@ def create_pull_request(github_token, repo_full_name, new_branch, target_branch,
     try:
         g = Github(github_token)
         repo = g.get_repo(repo_full_name)
-        
+
+        # Check if a pull request already exists for the sync-branch
+        pulls = repo.get_pulls(state='open', head=f"{repo_full_name.split('/')[0]}:{new_branch}", base=target_branch)
+        if pulls.totalCount > 0:
+            logging.info(f"A pull request already exists for {new_branch} -> {target_branch}. Skipping PR creation.")
+            return
+
+        # Create the pull request if no existing one was found
         pr = repo.create_pull(
             title=f"Sync {new_branch} with {target_branch}",
             body=f"PR created to sync changes from {target_branch} to {new_branch}.",
