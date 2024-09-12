@@ -1,1 +1,5 @@
+<<<<<<< HEAD
 Content for target
+=======
+Initial content source
+>>>>>>> source/main
