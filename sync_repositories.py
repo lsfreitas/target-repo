@@ -104,7 +104,6 @@ def setup_repo_sync(target_repo_url, source_repo_url, target_branch, source_bran
             # Fetch the source branch from the source remote
             fetch_branch(repo, 'source', source_branch)
             
-            
             # Push the merged branch to the remote repository
             push_branch(repo, new_branch)
             
