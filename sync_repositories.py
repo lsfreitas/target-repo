@@ -27,7 +27,46 @@ def check_env_vars():
 
     return target_repo_url, source_repo_url, target_branch, source_branch, github_token
 
-def setup_repo_sync(target_repo_url, source_repo_url):
+def create_and_checkout_branch(repo, target_branch, new_branch_name):
+    try:
+        repo.git.checkout(target_branch)
+        logging.info(f"Checked out target branch: {target_branch}")
+        if new_branch_name in repo.branches:
+            repo.git.checkout(new_branch_name)
+            logging.info(f"Checked out existing branch: {new_branch_name}")
+        else:
+            repo.git.checkout('-b', new_branch_name) # Create a new branch from the target branch
+            logging.info(f"Created and checked out new branch: {new_branch_name}")
+    except GitCommandError as e:
+        logging.error(f"Failed to checkout and create branch: {e}")
+        raise e
+
+def fetch_branch(repo, remote_name, branch_name):
+    try:
+        remote = repo.remotes[remote_name]
+        remote.fetch(branch_name)
+        logging.info(f"Fetched branch '{branch_name}' from remote '{remote_name}'")
+    except GitCommandError as e:
+        logging.error(f"Failed to fetch branch '{branch_name}' from remote '{remote_name}': {e}")
+        raise e
+
+def push_branch(repo, branch_name):
+    try:
+        repo.git.push('origin', branch_name)
+        logging.info(f"Pushed branch '{branch_name}' to remote 'origin'")
+    except GitCommandError as e:
+        logging.error(f"Failed to push branch '{branch_name}': {e}")
+        raise e
+
+def branch_exists_in_remote(repo, branch_name):
+    try:
+        branches = repo.git.ls_remote('--heads', 'origin', branch_name)
+        return bool(branches)
+    except GitCommandError as e:
+        logging.error(f"Error checking if branch exists in remote: {e.stderr}")
+        return False
+
+def setup_repo_sync(target_repo_url, source_repo_url, target_branch, source_branch):
     logging.info(f"Starting sync process for repository: {target_repo_url}")
     try:
         with tempfile.TemporaryDirectory() as repo_path:
@@ -42,8 +81,9 @@ def setup_repo_sync(target_repo_url, source_repo_url):
             logging.info(f"Successfully fetched latest changes for repository at {repo_path}")
             
             logging.info("Adding source remote:")
-            repo.create_remote('source', source_repo_url)
-            logging.info(f"Added remote 'source' with URL '{source_repo_url}' to the repository.")
+            if 'source' not in [remote.name for remote in repo.remotes]:
+                repo.create_remote('source', source_repo_url)
+                logging.info(f"Added remote 'source' with URL '{source_repo_url}' to the repository.")
             
             # Log the list of remotes after adding the new remote
             logging.info("Current remotes in the repository:")
@@ -52,6 +92,22 @@ def setup_repo_sync(target_repo_url, source_repo_url):
                     logging.info(f"Remote name: {remote.name}, URL: {url}")
             
             logging.info(f"Sync process completed for repository: {target_repo_url}")
+            
+            # Check if the sync-branch exists in the remote repository
+            new_branch = 'sync-branch'
+            if branch_exists_in_remote(repo, new_branch):
+                logging.info(f"Branch '{new_branch}' already exists in the remote repository. Checking it out.")
+                repo.git.checkout(new_branch)
+            else:
+                create_and_checkout_branch(repo, target_branch, new_branch)
+            
+            # Fetch the source branch from the source remote
+            fetch_branch(repo, 'source', source_branch)
+            
+            
+            # Push the merged branch to the remote repository
+            push_branch(repo, new_branch)
+            
             return repo
     except GitCommandError as e:
         logging.error(f"Failed to clone or fetch repository: {e}")
@@ -62,7 +118,7 @@ def setup_repo_sync(target_repo_url, source_repo_url):
 
 def main():
     target_repo_url, source_repo_url, target_branch, source_branch, github_token = check_env_vars()
-    setup_repo_sync(target_repo_url, source_repo_url)
+    repo = setup_repo_sync(target_repo_url, source_repo_url, target_branch, source_branch)
 
 if __name__ == "__main__":
     main()
