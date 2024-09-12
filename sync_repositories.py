@@ -35,7 +35,7 @@ def create_and_checkout_branch(repo, target_branch, new_branch_name):
             repo.git.checkout(new_branch_name)
             logging.info(f"Checked out existing branch: {new_branch_name}")
         else:
-            repo.git.checkout('-b', new_branch_name) # Create a new branch from the target branch
+            repo.git.checkout('-b', new_branch_name)  # Create a new branch from the target branch
             logging.info(f"Created and checked out new branch: {new_branch_name}")
     except GitCommandError as e:
         logging.error(f"Failed to checkout and create branch: {e}")
@@ -66,7 +66,47 @@ def branch_exists_in_remote(repo, branch_name):
         logging.error(f"Error checking if branch exists in remote: {e.stderr}")
         return False
 
-def setup_repo_sync(target_repo_url, source_repo_url, target_branch, source_branch):
+def merge_branches(repo, source_branch, new_branch):
+    try:
+        logging.info(f"Attempting to merge {source_branch} into {new_branch}")
+        # Using --allow-unrelated-histories to allow merging unrelated histories
+        repo.git.merge(source_branch, '--allow-unrelated-histories')
+        logging.info(f"Merge of {source_branch} into {new_branch} successful")
+        return True  # Merge was successful
+    except GitCommandError as e:
+        if 'CONFLICT' in str(e):
+            logging.error(f"Merge conflict detected while merging {source_branch} into {new_branch}")
+            
+            # Add and commit the conflicted state to push the changes with conflicts
+            logging.info("Staging conflicted files")
+            repo.git.add(A=True)  # Add all files (even conflicted)
+            
+            logging.info("Committing the conflicted state")
+            repo.git.commit('-m', f"Merge conflict between {new_branch} and {source_branch}")
+            
+            return False  # Merge conflict detected
+        else:
+            logging.error(f"Failed to merge branch {source_branch}: {e}")
+            raise e
+
+def create_pull_request(github_token, repo_full_name, new_branch, target_branch, is_draft):
+    try:
+        g = Github(github_token)
+        repo = g.get_repo(repo_full_name)
+        
+        pr = repo.create_pull(
+            title=f"Sync {new_branch} with {target_branch}",
+            body=f"PR created to sync changes from {target_branch} to {new_branch}.",
+            head=new_branch,
+            base=target_branch,
+            draft=is_draft  # Mark as draft if there are conflicts
+        )
+        logging.info(f"Pull request created: {pr.html_url}")
+    except GithubException as e:
+        logging.error(f"Failed to create pull request: {e}")
+        raise e
+
+def setup_repo_sync(target_repo_url, source_repo_url, target_branch, source_branch, github_token):
     logging.info(f"Starting sync process for repository: {target_repo_url}")
     try:
         with tempfile.TemporaryDirectory() as repo_path:
@@ -85,12 +125,6 @@ def setup_repo_sync(target_repo_url, source_repo_url, target_branch, source_bran
                 repo.create_remote('source', source_repo_url)
                 logging.info(f"Added remote 'source' with URL '{source_repo_url}' to the repository.")
             
-            # Log the list of remotes after adding the new remote
-            logging.info("Current remotes in the repository:")
-            for remote in repo.remotes:
-                for url in remote.urls:
-                    logging.info(f"Remote name: {remote.name}, URL: {url}")
-            
             logging.info(f"Sync process completed for repository: {target_repo_url}")
             
             # Check if the sync-branch exists in the remote repository
@@ -104,10 +138,17 @@ def setup_repo_sync(target_repo_url, source_repo_url, target_branch, source_bran
             # Fetch the source branch from the source remote
             fetch_branch(repo, 'source', source_branch)
             
-            # Push the merged branch to the remote repository
-            push_branch(repo, new_branch)
-            
-            return repo
+            # Merge the source branch into the new branch and check for conflicts
+            if merge_branches(repo, f'source/{source_branch}', new_branch):
+                push_branch(repo, new_branch)  # Push the merged branch if no conflicts
+                logging.info("Merge completed successfully. No conflicts.")
+                return True
+            else:
+                # Push the conflict state
+                push_branch(repo, new_branch)
+                logging.info(f"Conflict detected. Pushed branch '{new_branch}' with conflicts.")
+                return False
+
     except GitCommandError as e:
         logging.error(f"Failed to clone or fetch repository: {e}")
         raise e
@@ -117,7 +158,20 @@ def setup_repo_sync(target_repo_url, source_repo_url, target_branch, source_bran
 
 def main():
     target_repo_url, source_repo_url, target_branch, source_branch, github_token = check_env_vars()
-    repo = setup_repo_sync(target_repo_url, source_repo_url, target_branch, source_branch)
+    
+    # Extract the repo name in the format "owner/repo-name"
+    repo_full_name = target_repo_url.split(':')[1].replace('.git', '')
+
+    # Setup the repository and handle sync
+    merge_success = setup_repo_sync(target_repo_url, source_repo_url, target_branch, source_branch, github_token)
+    
+    # Whether merge was successful or not, we still want to create a PR
+    if merge_success:
+        logging.info("Merge was successful. Creating regular pull request.")
+        create_pull_request(github_token, repo_full_name, 'sync-branch', target_branch, is_draft=False)
+    else:
+        logging.info("Creating draft pull request due to conflicts.")
+        create_pull_request(github_token, repo_full_name, 'sync-branch', target_branch, is_draft=True)
 
 if __name__ == "__main__":
     main()
