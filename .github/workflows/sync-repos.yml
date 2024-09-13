@@ -5,7 +5,7 @@ on:
     branches:
       - main
   schedule:
-    - cron: "0 2 * * *" # Runs daily at 2:00 AM UTC (adjust as needed)
+    - cron: "0 2 * * *" # Runs daily at 2:00 AM UTC
 
 jobs:
   sync_repos:
@@ -14,6 +14,18 @@ jobs:
     steps:
       - name: Checkout the repository
         uses: actions/checkout@v2
+
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+
+      - name: Set Git user as GitHub Actions bot
+        run: |
+          git config --global user.name "${{ github.actor }}"
+          git config --global user.email "${{ github.actor }}@users.noreply.github.com"
 
       - name: Set up Python
         uses: actions/setup-python@v3
@@ -27,10 +39,14 @@ jobs:
 
       - name: Run the sync script
         env:
-          TARGET_REPO_URL: git@github.com:lsfreitas/target-repo.git # Default value
-          SOURCE_REPO_URL: git@github.com:lsfreitas/source-repo.git # Default value
-          TARGET_BRANCH: main # Default value
-          SOURCE_BRANCH: main # Default value
-          GITHUB_TOKEN: ${{ secrets.MY_GITHUB_TOKEN }} # GitHub Actions token
+          TARGET_REPO_URL: git@github.com:lsfreitas/target-repo.git
+          SOURCE_REPO_URL: git@github.com:lsfreitas/source-repo.git
+          TARGET_BRANCH: main
+          SOURCE_BRANCH: main
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           python sync_repositories.py
+
+      - name: Notify on failure
+        if: failure()
+        run: echo "The sync job failed."
