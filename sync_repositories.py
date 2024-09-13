@@ -120,7 +120,6 @@ def create_pull_request(github_token, repo_full_name, new_branch, target_branch,
         logging.error(f"Failed to create or update pull request: {e}")
         raise e
 
-
 def get_commits_from_pull_request(pr):
     """Fetches the list of commits in the PR and formats them."""
     commit_messages = []
