@@ -37,7 +37,7 @@ jobs:
           TARGET_BRANCH: main # Default value
           SOURCE_BRANCH: main # Default value
           GITHUB_TOKEN: ${{ secrets.MY_GITHUB_TOKEN }} # GitHub Actions token
-          SYNC_REPOS_BRANCH_NAME: sync-repos
+          SYNC_REPOS_BRANCH_NAME: sync-repo-source
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }} # SSH private key
         run: |
           mkdir -p ~/.ssh
