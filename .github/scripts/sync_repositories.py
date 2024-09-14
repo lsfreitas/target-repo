@@ -11,6 +11,7 @@ def check_env_vars():
     source_repo_url = os.getenv('SOURCE_REPO_URL')
     target_branch = os.getenv('TARGET_BRANCH', 'main')
     source_branch = os.getenv('SOURCE_BRANCH', 'main')
+    sync_repos_branch = os.getenv('SYNC_REPOS_BRANCH_NAME', 'sync-repositories')
     github_token = os.getenv('GITHUB_TOKEN')
 
     if not target_repo_url:
@@ -23,8 +24,10 @@ def check_env_vars():
         logging.error("SOURCE_BRANCH environment variable must be set.")
     if not github_token:
         logging.error("GITHUB_TOKEN environment variable must be set.")
+    if not sync_repos_branch:
+        logging.error("TARGET_REPO_URL environment variable must be set.")
 
-    return target_repo_url, source_repo_url, target_branch, source_branch, github_token
+    return target_repo_url, source_repo_url, target_branch, source_branch, github_token, sync_repos_branch
 
 def create_and_checkout_branch(repo, target_branch, new_branch_name):
     try:
@@ -88,7 +91,7 @@ def merge_branches(repo, source_branch, new_branch):
             logging.error(f"Failed to merge branch {source_branch}: {e}")
             raise e
 
-def create_pull_request(github_token, repo_full_name, new_branch, target_branch, is_draft, commit_messages=""):
+def create_pull_request(github_token, repo_full_name, new_branch, target_branch, source_repo_url, is_draft):
     try:
         g = Github(github_token)
         repo = g.get_repo(repo_full_name)
@@ -102,7 +105,7 @@ def create_pull_request(github_token, repo_full_name, new_branch, target_branch,
             # Create a new pull request
             pr = repo.create_pull(
                 title=f"Sync {new_branch} with {target_branch}",
-                body=f"PR created to sync changes from {target_branch} to {new_branch}.",
+                body=f"PR created to sync changes from {source_repo_url}.",
                 head=new_branch,
                 base=target_branch,
                 draft=is_draft
@@ -112,7 +115,7 @@ def create_pull_request(github_token, repo_full_name, new_branch, target_branch,
         # Now fetch the commits for this pull request using the PR number
         commit_messages = get_commits_from_pull_request(pr)
 
-        pr.edit(body=f"PR created to sync changes from {target_branch} to {new_branch}.\n\n### Commits included in this PR:\n{commit_messages}")
+        pr.edit(body=f"PR created to sync changes from {source_repo_url}.\n\n### Commits included in this PR:\n{commit_messages}")
 
     except GithubException as e:
         logging.error(f"Failed to create or update pull request: {e}")
@@ -177,20 +180,20 @@ def setup_repo_sync(target_repo_url, source_repo_url, target_branch, source_bran
 
 
 def main():
-    target_repo_url, source_repo_url, target_branch, source_branch, github_token = check_env_vars()
+    target_repo_url, source_repo_url, target_branch, source_branch, github_token, sync_repos_branch = check_env_vars()
     
     # Extract the repo name in the format "owner/repo-name"
     repo_full_name = target_repo_url.split(':')[1].replace('.git', '')
 
     # Setup the repository and handle sync
-    merge_success, commit_messages = setup_repo_sync(target_repo_url, source_repo_url, target_branch, source_branch)
+    merge_success = setup_repo_sync(target_repo_url, source_repo_url, target_branch, source_branch)
     
     if merge_success:
         logging.info("Merge was successful. Creating regular pull request.")
-        create_pull_request(github_token, repo_full_name, 'sync-branch', target_branch, is_draft=False, commit_messages=commit_messages)
+        create_pull_request(github_token, repo_full_name, sync_repos_branch, target_branch, source_repo_url, is_draft=False)
     else:
         logging.info("Creating draft pull request due to conflicts.")
-        create_pull_request(github_token, repo_full_name, 'sync-branch', target_branch, is_draft=True, commit_messages="")
+        create_pull_request(github_token, repo_full_name, sync_repos_branch, target_branch, source_repo_url, is_draft=True)
 
 if __name__ == "__main__":
     main()
