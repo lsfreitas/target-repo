@@ -134,7 +134,7 @@ def get_commits_from_pull_request(pr):
 
     return "\n".join(commit_messages)
 
-def setup_repo_sync(target_repo_url, source_repo_url, target_branch, source_branch):
+def setup_repo_sync(target_repo_url, source_repo_url, target_branch, source_branch, sync_branch):
     logging.info(f"Starting sync process for repository: {target_repo_url}")
     try:
         with tempfile.TemporaryDirectory() as repo_path:            
@@ -150,7 +150,7 @@ def setup_repo_sync(target_repo_url, source_repo_url, target_branch, source_bran
                 logging.info(f"Added remote 'source' with URL '{source_repo_url}' to the repository.")
                         
             # Check if the sync-branch exists in the remote repository
-            new_branch = 'sync-branch'
+            new_branch = sync_branch
             if branch_exists_in_remote(repo, new_branch):
                 logging.info(f"Branch '{new_branch}' already exists in the remote repository. Checking it out.")
                 repo.git.checkout(new_branch)
@@ -188,7 +188,7 @@ def main():
     logging.info(f"New branch = {sync_repos_branch}")
 
     # Setup the repository and handle sync
-    merge_success = setup_repo_sync(target_repo_url, source_repo_url, target_branch, source_branch)
+    merge_success = setup_repo_sync(target_repo_url, source_repo_url, target_branch, source_branch, sync_repos_branch)
     
     if merge_success:
         logging.info("Merge was successful. Creating regular pull request.")
