@@ -183,7 +183,7 @@ def main():
     repo_full_name = target_repo_url.split(':')[1].replace('.git', '')
 
     # Setup the repository and handle sync
-    merge_success, commit_messages = setup_repo_sync(target_repo_url, source_repo_url, target_branch, source_branch, github_token, repo_full_name)
+    merge_success, commit_messages = setup_repo_sync(target_repo_url, source_repo_url, target_branch, source_branch)
     
     if merge_success:
         logging.info("Merge was successful. Creating regular pull request.")
