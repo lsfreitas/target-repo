@@ -189,7 +189,7 @@ def main():
 
     # Setup the repository and handle sync
     merge_success = setup_repo_sync(target_repo_url, source_repo_url, target_branch, source_branch, sync_repos_branch)
-    
+    logging.info(f"Merge success = {merge_success}")
     if merge_success:
         logging.info("Merge was successful. Creating regular pull request.")
         create_pull_request(github_token, repo_full_name, sync_repos_branch, target_branch, source_repo_url, is_draft=False)
