@@ -164,12 +164,12 @@ def setup_repo_sync(target_repo_url, source_repo_url, target_branch, source_bran
             if merge_branches(repo, f'source/{source_branch}', new_branch):
                 push_branch(repo, new_branch)  # Push the merged branch if no conflicts
                 logging.info("Merge completed successfully. No conflicts.")
-                return True, ""
+                return True
             else:
                 # Push the conflict state
                 push_branch(repo, new_branch)
                 logging.info(f"Conflict detected. Pushed branch '{new_branch}' with conflicts.")
-                return False, ""
+                return False
 
     except GitCommandError as e:
         logging.error(f"Failed to clone or fetch repository: {e}")
