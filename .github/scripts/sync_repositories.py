@@ -185,6 +185,8 @@ def main():
     # Extract the repo name in the format "owner/repo-name"
     repo_full_name = target_repo_url.split(':')[1].replace('.git', '')
 
+    logging.info(f"New branch = {sync_repos_branch}")
+
     # Setup the repository and handle sync
     merge_success = setup_repo_sync(target_repo_url, source_repo_url, target_branch, source_branch)
     
