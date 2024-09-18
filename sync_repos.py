@@ -70,7 +70,7 @@ def sync_repos(args):
 
             # Step 7: Push the new branch to the remote target repository
             logging.info(f"Pushing new branch '{sync_branch_name}' to the remote target repository.")
-            repo.git.push('origin', sync_branch_name)
+            repo.git.push('origin', sync_branch_name, force=True)
             
             # Step 8: Create a pull request with all commits, including those with conflicts
             pr_body = 'Cherry-picked commits:\n' + '\n'.join([f'- [Commit {commit[:7]}]({args.target_repo}/commit/{commit})' for commit in commits])
