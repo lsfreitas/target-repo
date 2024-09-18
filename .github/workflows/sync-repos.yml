@@ -24,7 +24,11 @@ jobs:
           ref: ${{ github.event.inputs.target_branch }}
           repository: ${{ github.repository }}
           fetch-depth: 0
-          token: ${{ secrets.MY_GITHUB_TOKEN }}
+          token: ${{ secrets.SYNC_REPOS_TOKEN }}
+      - name: Set up Git identity
+        run: |
+          git config --global user.name "GitHub Action"
+          git config --global user.email "action@github.com"
 
       - name: Set up Python
         uses: actions/setup-python@v3
@@ -38,7 +42,7 @@ jobs:
 
       - name: Run sync_repos.py script
         env:
-          GITHUB_TOKEN: ${{ secrets.MY_GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.SYNC_REPOS_TOKEN }}
         run: |
           python sync_repos.py \
             --target-repo ${{ github.repository }} \

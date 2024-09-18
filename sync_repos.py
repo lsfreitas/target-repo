@@ -66,6 +66,7 @@ def sync_repos(args):
                     repo.git.cherry_pick('--continue')
 
             # Step 7: Push the new branch to the remote target repository
+            repo.git.remote('set-url', 'origin', f'https://{github_token}@github.com/{args.target_repo}.git')
             logging.info(f"Pushing new branch '{sync_branch_name}' to the remote target repository.")
             repo.git.push('origin', sync_branch_name, force=True)
             
