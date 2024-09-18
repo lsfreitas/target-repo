@@ -1,19 +1,27 @@
-name: Sync Repositories
+name: Sync Repositories Manually
 
 on:
-  push:
-    branches:
-      - main
-  schedule:
-    - cron: "0 2 * * *" # Runs daily at 2:00 AM UTC (adjust as needed)
+  workflow_dispatch:
+    inputs:
+      source_repo:
+        description: "Source GitHub repository in the format owner/repo"
+        required: true
+      source_branch:
+        description: "Branch in the source repository to sync from"
+        required: true
+      target_branch:
+        description: "Branch in the target repository to apply changes to"
+        required: true
 
 jobs:
-  sync_repos:
+  sync:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout the repository
-        uses: actions/checkout@v2
+      - name: Checkout the target repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v3
@@ -23,26 +31,14 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install PyGithub GitPython
+          pip install GitPython PyGithub
 
-      - name: Set Git user information
-        run: |
-          git config --global user.name "GitHub Actions"
-          git config --global user.email "actions@github.com"
-
-      - name: Run the sync script
+      - name: Run sync_repos.py script
         env:
-          TARGET_REPO_URL: git@github.com:lsfreitas/target-repo.git # Default value
-          SOURCE_REPO_URL: git@github.com:lsfreitas/source-repo.git # Default value
-          TARGET_BRANCH: main # Default value
-          SOURCE_BRANCH: main # Default value
-          GITHUB_TOKEN: ${{ secrets.MY_GITHUB_TOKEN }} # GitHub Actions token
-          SYNC_REPOS_BRANCH_NAME: sync-repo
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }} # SSH private key
+          GITHUB_TOKEN: ${{ secrets.SYNC_REPOS_TOKEN }}
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan github.com >> ~/.ssh/known_hosts
-
-          python .github/scripts/sync_repositories.py
+          python sync_repos.py \
+            --target-repo ${{ github.repository }} \
+            --source https://github.com/${{ github.event.inputs.source_repo }}.git \
+            --target-branch ${{ github.event.inputs.target_branch }} \
+            --source-branch ${{ github.event.inputs.source_branch }}
