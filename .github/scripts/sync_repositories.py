@@ -1,201 +1,93 @@
-import os
-import logging
+import argparse
 import tempfile
-from github import Github, GithubException
+import logging
+import os
+from datetime import datetime
 from git import Repo, GitCommandError
+from github import Github, GithubException
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s - %(message)s')
 
-def check_env_vars():
-    target_repo_url = os.getenv('TARGET_REPO_URL')
-    source_repo_url = os.getenv('SOURCE_REPO_URL')
-    target_branch = os.getenv('TARGET_BRANCH', 'main')
-    source_branch = os.getenv('SOURCE_BRANCH', 'main')
-    sync_repos_branch = os.getenv('SYNC_REPOS_BRANCH_NAME', 'sync-repositories')
-    github_token = os.getenv('GITHUB_TOKEN')
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--target-repo', type=str, required=True, help='The GitHub repository where changes will be applied.')
+    parser.add_argument('--source-repo', type=str, required=True, help='The GitHub repository from which commits will be cherry-picked.')
+    parser.add_argument('--target-branch', type=str, required=True, help='The branch in the target repository where changes will be applied.')
+    parser.add_argument('--source-branch', type=str, required=True, help='The branch in the source repository from which commits will be cherry-picked.')
+    return parser.parse_args()
 
-    if not target_repo_url:
-        logging.error("TARGET_REPO_URL environment variable must be set.")
-    if not source_repo_url:
-        logging.error("SOURCE_REPO_URL environment variable must be set.")
-    if not target_branch:
-        logging.error("TARGET_BRANCH environment variable must be set.")
-    if not source_branch:
-        logging.error("SOURCE_BRANCH environment variable must be set.")
-    if not github_token:
-        logging.error("GITHUB_TOKEN environment variable must be set.")
-    if not sync_repos_branch:
-        logging.error("TARGET_REPO_URL environment variable must be set.")
-
-    return target_repo_url, source_repo_url, target_branch, source_branch, github_token, sync_repos_branch
-
-def create_and_checkout_branch(repo, target_branch, new_branch_name):
+def sync_repos(args):
     try:
-        repo.git.checkout(target_branch)
-        logging.info(f"Checked out target branch: {target_branch}")
-        if new_branch_name in repo.branches:
-            repo.git.checkout(new_branch_name)
-            logging.info(f"Checked out existing branch: {new_branch_name}")
-        else:
-            repo.git.checkout('-b', new_branch_name)  # Create a new branch from the target branch
-            logging.info(f"Created and checked out new branch: {new_branch_name}")
-    except GitCommandError as e:
-        logging.error(f"Failed to checkout and create branch: {e}")
-        raise e
-
-def fetch_branch(repo, remote_name, branch_name):
-    try:
-        remote = repo.remotes[remote_name]
-        remote.fetch(branch_name)
-        logging.info(f"Fetched branch '{branch_name}' from remote '{remote_name}'")
-    except GitCommandError as e:
-        logging.error(f"Failed to fetch branch '{branch_name}' from remote '{remote_name}': {e}")
-        raise e
-
-def push_branch(repo, branch_name):
-    try:
-        repo.git.push('origin', branch_name)
-        logging.info(f"Pushed branch '{branch_name}' to remote 'origin'")
-    except GitCommandError as e:
-        logging.error(f"Failed to push branch '{branch_name}': {e}")
-        raise e
-
-def branch_exists_in_remote(repo, branch_name):
-    try:
-        branches = repo.git.ls_remote('--heads', 'origin', branch_name)
-        return bool(branches)
-    except GitCommandError as e:
-        logging.error(f"Error checking if branch exists in remote: {e.stderr}")
-        return False
-
-def merge_branches(repo, source_branch, new_branch):
-    try:
-        logging.info(f"Attempting to merge {source_branch} into {new_branch}")
-        # Using --allow-unrelated-histories to allow merging unrelated histories
-        repo.git.merge(source_branch, '--allow-unrelated-histories')
-        logging.info(f"Merge of {source_branch} into {new_branch} successful")
-        return True  # Merge was successful
-    except GitCommandError as e:
-        if 'CONFLICT' in str(e):
-            logging.error(f"Merge conflict detected while merging {source_branch} into {new_branch}")
-            
-            # Add and commit the conflicted state to push the changes with conflicts
-            logging.info("Staging conflicted files")
-            repo.git.add(A=True)  # Add all files (even conflicted)
-            
-            logging.info("Committing the conflicted state")
-            repo.git.commit('-m', f"Merge conflict between {new_branch} and {source_branch}")
-            
-            return False  # Merge conflict detected
-        else:
-            logging.error(f"Failed to merge branch {source_branch}: {e}")
-            raise e
-
-def create_pull_request(github_token, repo_full_name, new_branch, target_branch, source_repo_url, is_draft):
-    try:
+        github_token = os.getenv('GITHUB_TOKEN')
+        if not github_token:
+            raise ValueError("GitHub token not found. Please set the GITHUB_TOKEN environment variable.")
+        
+        # Step 1: Initialize GitHub client and get the repository
         g = Github(github_token)
-        repo = g.get_repo(repo_full_name)
+        github_repo = g.get_repo(args.target_repo)
 
-        # Check if a pull request already exists for the sync-branch
-        pulls = repo.get_pulls(state='open', head=f"{repo_full_name.split('/')[0]}:{new_branch}", base=target_branch)
-        if pulls.totalCount > 0:
-            pr = pulls[0]
-            logging.info(f"A pull request already exists: {pr.html_url}")
-        else:
-            # Create a new pull request
-            pr = repo.create_pull(
-                title=f"Sync {new_branch} with {target_branch}",
-                body=f"PR created to sync changes from {source_repo_url}.",
-                head=new_branch,
-                base=target_branch,
-                draft=is_draft
-            )
-            logging.info(f"Pull request created: {pr.html_url}")
-
-        # Now fetch the commits for this pull request using the PR number
-        commit_messages = get_commits_from_pull_request(pr)
-
-        pr.edit(body=f"PR created to sync changes from {source_repo_url}.\n\n### Commits included in this PR:\n{commit_messages}")
-
-    except GithubException as e:
-        logging.error(f"Failed to create or update pull request: {e}")
-        raise e
-
-def get_commits_from_pull_request(pr):
-    """Fetches the list of commits in the PR and formats them."""
-    commit_messages = []
-    commits = pr.get_commits()  # Fetch commits in the PR
-
-    for commit in commits:
-        sha = commit.sha[:7]  # Shorten the SHA to 7 characters (standard GitHub format)
-        message = commit.commit.message.strip()
-        commit_url = f"{pr.html_url}/commits/{commit.sha}"
-        commit_messages.append(f"- [{sha}]({commit_url}): {message}")
-
-    return "\n".join(commit_messages)
-
-def setup_repo_sync(target_repo_url, source_repo_url, target_branch, source_branch, sync_branch):
-    logging.info(f"Starting sync process for repository: {target_repo_url}")
-    try:
-        with tempfile.TemporaryDirectory() as repo_path:            
-            logging.info(f"Cloning repository from {target_repo_url} into {repo_path}")
+        with tempfile.TemporaryDirectory() as repo_path:
+            # Step 2: Clone the target repository
+            target_repo_url = f'https://github.com/{args.target_repo}.git'
+            logging.info(f"Cloning target repository '{args.target_repo}' into temporary directory.")
             repo = Repo.clone_from(target_repo_url, repo_path)
+
+            # Step 3: Add the source repository as a remote
+            repo.create_remote('source', args.source_repo)
+            logging.info(f"Added source repository '{args.source_repo}' as a remote.")
+
+            # Step 4: Checkout the target branch and create the sync branch
+            logging.info(f"Checking out target branch '{args.target_branch}'.")
+            repo.git.checkout(args.target_branch)
             
-            logging.info(f"Fetching latest changes for repository at {repo_path}")
-            repo.remotes.origin.fetch()
-            logging.info(f"Successfully fetched latest changes for repository at {repo_path}")
+            # Generate a unique sync branch name (timestamp + latest commit SHA)
+            timestamp = datetime.now().strftime('%Y%m%d-%H%M%S')
+            sync_branch_name = f"sync-branch-{timestamp}"
+
+            logging.info(f"Creating new sync branch '{sync_branch_name}' from '{args.target_branch}'.")
+            repo.git.checkout('-b', sync_branch_name)
+
+            # Step 5: Fetch the source branch from the source repository
+            logging.info(f"Fetching changes from source branch '{args.source_branch}' in source repository.")
+            repo.git.fetch('source', args.source_branch)
+
+            # Step 6: Cherry-pick commits from source to target
+            commits = []
+            is_draft = False
+            for commit in reversed(list(repo.iter_commits(f'source/{args.source_branch}'))):
+                commits.append(commit.hexsha)  # Track all commits, even those that cause conflicts
+                try:
+                    logging.info(f"Cherry-picking commit: {commit.hexsha}")
+                    repo.git.cherry_pick(commit, '-m1', '-x')
+                except GitCommandError:
+                    logging.warning(f"Conflict detected on commit {commit.hexsha}. Automatically resolving.")
+                    is_draft = True  # Mark PR as draft if there's a conflict
+                    repo.git.add(A=True)  # Stage changes to continue
+                    repo.git.cherry_pick('--continue')
+
+            # Step 7: Push the new branch to the remote target repository
+            repo.git.remote('set-url', 'origin', f'https://{github_token}@github.com/{args.target_repo}.git')
+            logging.info(f"Pushing new branch '{sync_branch_name}' to the remote target repository.")
+            repo.git.push('origin', sync_branch_name, force=True)
             
-            if 'source' not in [remote.name for remote in repo.remotes]:
-                repo.create_remote('source', source_repo_url)
-                logging.info(f"Added remote 'source' with URL '{source_repo_url}' to the repository.")
-                        
-            # Check if the sync-branch exists in the remote repository
-            new_branch = sync_branch
-            if branch_exists_in_remote(repo, new_branch):
-                logging.info(f"Branch '{new_branch}' already exists in the remote repository. Checking it out.")
-                repo.git.checkout(new_branch)
-            else:
-                create_and_checkout_branch(repo, target_branch, new_branch)
-            
-            # Fetch the source branch from the source remote
-            fetch_branch(repo, 'source', source_branch)
-            
-            # Attempt to merge the source branch into the new branch and check for conflicts
-            if merge_branches(repo, f'source/{source_branch}', new_branch):
-                push_branch(repo, new_branch)  # Push the merged branch if no conflicts
-                logging.info("Merge completed successfully. No conflicts.")
-                return True
-            else:
-                # Push the conflict state
-                push_branch(repo, new_branch)
-                logging.info(f"Conflict detected. Pushed branch '{new_branch}' with conflicts.")
-                return False
+            # Step 8: Create a pull request with all commits, including those with conflicts
+            pr_body = 'Cherry-picked commits:\n' + '\n'.join([f'- [Commit {commit[:7]}]({args.target_repo}/commit/{commit})' for commit in commits])
+            pr_title = f"Sync changes from {args.source_branch} to {args.target_branch}"
+            try:
+                pull_request = github_repo.create_pull(
+                    title=pr_title,
+                    body=pr_body,
+                    head=sync_branch_name,
+                    base=args.target_branch,
+                    draft=is_draft
+                )
+                logging.info(f"Pull request created: {pull_request.html_url}")
+            except GithubException as e:
+                logging.error(f"Failed to create pull request: {e}")
 
-    except GitCommandError as e:
-        logging.error(f"Failed to clone or fetch repository: {e}")
-        raise e
-    except GithubException as e:
-        logging.error(f"GitHub error: {e}")
-        raise e
-
-
-def main():
-    target_repo_url, source_repo_url, target_branch, source_branch, github_token, sync_repos_branch = check_env_vars()
-    
-    # Extract the repo name in the format "owner/repo-name"
-    repo_full_name = target_repo_url.split(':')[1].replace('.git', '')
-
-    logging.info(f"New branch = {sync_repos_branch}")
-
-    # Setup the repository and handle sync
-    merge_success = setup_repo_sync(target_repo_url, source_repo_url, target_branch, source_branch, sync_repos_branch)
-    logging.info(f"Merge success = {merge_success}")
-    if merge_success:
-        logging.info("Merge was successful. Creating regular pull request.")
-        create_pull_request(github_token, repo_full_name, sync_repos_branch, target_branch, source_repo_url, is_draft=False)
-    else:
-        logging.info("Creating draft pull request due to conflicts.")
-        create_pull_request(github_token, repo_full_name, sync_repos_branch, target_branch, source_repo_url, is_draft=True)
+    except Exception as e:
+        logging.error(f"An error occurred: {e}")
 
 if __name__ == "__main__":
-    main()
+    args = parse_args()
+    sync_repos(args)
