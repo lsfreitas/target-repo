@@ -2,6 +2,7 @@ import argparse
 import tempfile
 import logging
 import os
+from datetime import datetime
 from git import Repo, GitCommandError
 from github import Github, GithubException
 
@@ -13,7 +14,6 @@ def parse_args():
     parser.add_argument('--source-repo', type=str, required=True, help='The GitHub repository from which commits will be cherry-picked.')
     parser.add_argument('--target-branch', type=str, required=True, help='The branch in the target repository where changes will be applied.')
     parser.add_argument('--source-branch', type=str, required=True, help='The branch in the source repository from which commits will be cherry-picked.')
-    parser.add_argument('--sync-branch', type=str, required=True, help='The new branch to create for the sync process.')
     return parser.parse_args()
 
 def sync_repos(args):
@@ -43,8 +43,12 @@ def sync_repos(args):
             logging.info(f"Checking out target branch '{args.target_branch}'.")
             repo.git.checkout(args.target_branch)
             
-            logging.info(f"Creating new sync branch '{args.sync_branch}' from '{args.target_branch}'.")
-            repo.git.checkout('-b', args.sync_branch)
+            # Generate a unique sync branch name (timestamp + latest commit SHA)
+            timestamp = datetime.now().strftime('%Y%m%d-%H%M%S')
+            sync_branch_name = f"sync-branch-{timestamp}"
+
+            logging.info(f"Creating new sync branch '{sync_branch_name}' from '{args.target_branch}'.")
+            repo.git.checkout('-b', sync_branch_name)
 
             # Step 5: Fetch the source branch from the source repository
             logging.info(f"Fetching changes from source branch '{args.source_branch}' in source repository.")
@@ -65,8 +69,8 @@ def sync_repos(args):
                     repo.git.cherry_pick('--continue')
 
             # Step 7: Push the new branch to the remote target repository
-            logging.info(f"Pushing new branch '{args.sync_branch}' to the remote target repository.")
-            repo.git.push('origin', args.sync_branch)
+            logging.info(f"Pushing new branch '{sync_branch_name}' to the remote target repository.")
+            repo.git.push('origin', sync_branch_name)
             
             # Step 8: Create a pull request with all commits, including those with conflicts
             pr_body = 'Cherry-picked commits:\n' + '\n'.join([f'- [Commit {commit[:7]}]({args.target_repo}/commit/{commit})' for commit in commits])
@@ -75,7 +79,7 @@ def sync_repos(args):
                 pull_request = github_repo.create_pull(
                     title=pr_title,
                     body=pr_body,
-                    head=args.sync_branch,
+                    head=sync_branch_name,
                     base=args.target_branch,
                     draft=is_draft
                 )
