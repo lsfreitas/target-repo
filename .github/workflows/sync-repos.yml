@@ -10,7 +10,7 @@ on:
         description: "Branch in the source repository to sync from"
         required: true
       target_branch:
-        description: "Branch in the target repository to apply changes to"
+        description: "Branch in the current repository to apply changes to"
         required: true
 
 jobs:
@@ -39,6 +39,6 @@ jobs:
         run: |
           python sync_repos.py \
             --target-repo ${{ github.repository }} \
-            --source https://github.com/${{ github.event.inputs.source_repo }}.git \
+            --source-repo https://github.com/${{ github.event.inputs.source_repo }}.git \
             --target-branch ${{ github.event.inputs.target_branch }} \
             --source-branch ${{ github.event.inputs.source_branch }}
