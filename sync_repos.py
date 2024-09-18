@@ -25,9 +25,6 @@ def sync_repos(args):
         # Step 1: Initialize GitHub client and get the repository
         g = Github(github_token)
         github_repo = g.get_repo(args.target_repo)
-        logging.info(f"Args: {args}")
-        logging.info(f"Github repository: {github_repo}")
-        logging.info(f"Found target repository: {github_repo.full_name}")
 
         with tempfile.TemporaryDirectory() as repo_path:
             # Step 2: Clone the target repository
