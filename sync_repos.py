@@ -2,14 +2,14 @@ import argparse
 import tempfile
 import logging
 from git import Repo, GitCommandError
-from github import Github, GithubException  # PyGithub library for GitHub API
+from github import Github, GithubException
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s - %(message)s')
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--target', type=str, required=True, help='The GitHub repository where changes will be applied.')
-    parser.add_argument('--source', type=str, required=True, help='The GitHub repository from which commits will be cherry-picked.')
+    parser.add_argument('--target-repo', type=str, required=True, help='The GitHub repository where changes will be applied.')
+    parser.add_argument('--source-repo', type=str, required=True, help='The GitHub repository from which commits will be cherry-picked.')
     parser.add_argument('--target-branch', type=str, required=True, help='The branch in the target repository where changes will be applied.')
     parser.add_argument('--source-branch', type=str, required=True, help='The branch in the source repository from which commits will be cherry-picked.')
     parser.add_argument('--sync-branch', type=str, required=True, help='The new branch to create for the sync process.')
@@ -20,17 +20,20 @@ def sync_repos(args):
     try:
         # Step 1: Initialize GitHub client and get the repository
         g = Github(args.github_token)
-        github_repo = g.get_repo(args.target.split('.com/')[-1])
+        github_repo = g.get_repo(args.target_repo)
+        logging.info(f"Args: {args}")
+        logging.info(f"Github repository: {github_repo}")
         logging.info(f"Found target repository: {github_repo.full_name}")
-        
+
         with tempfile.TemporaryDirectory() as repo_path:
             # Step 2: Clone the target repository
-            logging.info(f"Cloning target repository '{args.target}' into temporary directory.")
-            repo = Repo.clone_from(args.target, repo_path)
+            target_repo_url = f'https://github.com/{args.target_repo}.git'
+            logging.info(f"Cloning target repository '{args.target_repo}' into temporary directory.")
+            repo = Repo.clone_from(target_repo_url, repo_path)
 
             # Step 3: Add the source repository as a remote
-            repo.create_remote('source', args.source)
-            logging.info(f"Added source repository '{args.source}' as a remote.")
+            repo.create_remote('source', args.source_repo)
+            logging.info(f"Added source repository '{args.source_repo}' as a remote.")
 
             # Step 4: Checkout the target branch and create the sync branch
             logging.info(f"Checking out target branch '{args.target_branch}'.")
@@ -62,7 +65,7 @@ def sync_repos(args):
             repo.git.push('origin', args.sync_branch)
             
             # Step 8: Create a pull request with all commits, including those with conflicts
-            pr_body = 'Cherry-picked commits:\n' + '\n'.join([f'- [Commit {commit[:7]}]({args.target}/commit/{commit})' for commit in commits])
+            pr_body = 'Cherry-picked commits:\n' + '\n'.join([f'- [Commit {commit[:7]}]({args.target_repo}/commit/{commit})' for commit in commits])
             pr_title = f"Sync changes from {args.source_branch} to {args.target_branch}"
             try:
                 pull_request = github_repo.create_pull(
