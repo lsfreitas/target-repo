@@ -1,4 +1,4 @@
-name: Sync Repositories Manually
+name: Sync Repositories
 
 on:
   workflow_dispatch:
@@ -37,7 +37,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install GitPython PyGithub
 
-      - name: Run sync_repos.py script
+      - name: Run python script
         env:
           GITHUB_TOKEN: ${{ secrets.SYNC_REPOS_TOKEN }}
         run: |
