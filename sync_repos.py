@@ -18,9 +18,9 @@ def parse_args():
 
 def sync_repos(args):
     try:
-        github_token = os.getenv('SYNC_REPOS_TOKEN')
+        github_token = os.getenv('GITHUB_TOKEN')
         if not github_token:
-            raise ValueError("GitHub token not found. Please set the SYNC_REPOS_TOKEN environment variable.")
+            raise ValueError("GitHub token not found. Please set the GITHUB_TOKEN environment variable.")
         
         # Step 1: Initialize GitHub client and get the repository
         g = Github(github_token)
