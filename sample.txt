@@ -1,5 +1,6 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 test
 =======
 Initial content
@@ -7,3 +8,6 @@ Initial content
 =======
 Initial content source
 >>>>>>> bfd40ea (change text)
+=======
+test
+>>>>>>> 0b85f23 (Update sample.txt)
