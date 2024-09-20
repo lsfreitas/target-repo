@@ -18,9 +18,9 @@ def parse_args():
 
 def sync_repos(args):
     try:
-        github_token = os.getenv('GITHUB_TOKEN')
+        github_token = os.getenv('AUTO_BACKPORT_TOKEN')
         if not github_token:
-            raise ValueError("GitHub token not found. Please set the GITHUB_TOKEN environment variable.")
+            raise ValueError("GitHub token not found. Please set the AUTO_BACKPORT_TOKEN environment variable.")
         
         # Step 1: Initialize GitHub client and get the repository
         g = Github(github_token)
@@ -28,12 +28,11 @@ def sync_repos(args):
 
         with tempfile.TemporaryDirectory() as repo_path:
             # Step 2: Clone the target repository
-            target_repo_url = f'https://github.com/{args.target_repo}.git'
             logging.info(f"Cloning target repository '{args.target_repo}' into temporary directory.")
-            repo = Repo.clone_from(target_repo_url, repo_path)
+            repo = Repo.clone_from(f'https://github.com/{args.target_repo}.git', repo_path)
 
             # Step 3: Add the source repository as a remote
-            repo.create_remote('source', args.source_repo)
+            repo.create_remote('source', f'https://github.com/{args.source_repo}.git')
             logging.info(f"Added source repository '{args.source_repo}' as a remote.")
 
             # Step 4: Checkout the target branch and create the sync branch

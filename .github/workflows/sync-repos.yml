@@ -21,11 +21,10 @@ jobs:
       - name: Checkout the target repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-      - name: Set up Git identity
-        run: |
-          git config --global user.name "GitHub Action"
-          git config --global user.email "action@github.com"
+          repository: ${{ github.repository }}
+          ref: ${{ env.DEFAULT_BRANCH }}
+          token: ${{ secrets.AUTO_BACKPORT_TOKEN }}
+          fetch-depth: 0 # Fetch all history for all tags and branches
 
       - name: Set up Python
         uses: actions/setup-python@v3
@@ -39,7 +38,7 @@ jobs:
 
       - name: Run python script
         env:
-          GITHUB_TOKEN: ${{ secrets.SYNC_REPOS_TOKEN }}
+          AUTO_BACKPORT_TOKEN: ${{ secrets.AUTO_BACKPORT_TOKEN }}
         run: |
           python .github/scripts/sync_repositories.py \
             --target-repo ${{ github.repository }} \
