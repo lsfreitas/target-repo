@@ -57,12 +57,23 @@ def sync_repos(args):
                 commits.append(commit.hexsha)  # Track all commits, even those that cause conflicts
                 try:
                     logging.info(f"Cherry-picking commit: {commit.hexsha}")
-                    repo.git.cherry_pick(commit, '-m1', '-x')
-                except GitCommandError:
-                    logging.warning(f"Conflict detected on commit {commit.hexsha}. Automatically resolving.")
-                    is_draft = True  # Mark PR as draft if there's a conflict
-                    repo.git.add(A=True)  # Stage changes to continue
-                    repo.git.cherry_pick('--continue')
+                    repo.git.cherry_pick(commit, '-m1')
+                except GitCommandError as e:
+                    if 'The previous cherry-pick is now empty' in str(e):
+                        logging.warning(f"Commit {commit.hexsha} resulted in an empty commit, skipping.")
+                        repo.git.cherry_pick('--skip')  # Skip the empty commit
+                    else:
+                        logging.warning(f"Conflict detected on commit {commit.hexsha}. Automatically resolving.")
+                        is_draft = True  # Mark PR as draft if there's a conflict
+                        repo.git.add(A=True)  # Stage changes to continue
+                        try:
+                            repo.git.cherry_pick('--continue')
+                        except GitCommandError as continue_error:
+                            if 'The previous cherry-pick is now empty' in str(continue_error):
+                                logging.warning(f"Commit {commit.hexsha} resulted in an empty commit after conflict resolution, skipping.")
+                                repo.git.cherry_pick('--skip')  # Skip the empty commit
+                            else:
+                                raise
 
             # Step 7: Push the new branch to the remote target repository
             repo.git.remote('set-url', 'origin', f'https://{github_token}@github.com/{args.target_repo}.git')
@@ -70,7 +81,8 @@ def sync_repos(args):
             repo.git.push('origin', sync_branch_name, force=True)
             
             # Step 8: Create a pull request with all commits, including those with conflicts
-            pr_body = 'Cherry-picked commits:\n' + '\n'.join([f'- [Commit {commit[:7]}]({args.target_repo}/commit/{commit})' for commit in commits])
+            pr_body = 'Cherry-picked commits:\n' + '\n'.join([f'- [Commit {commit[:7]}](https://github.com/{args.target_repo}/commit/{commit})' for commit in commits])
+
             pr_title = f"Sync changes from {args.source_branch} to {args.target_branch}"
             try:
                 pull_request = github_repo.create_pull(
