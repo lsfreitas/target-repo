@@ -1,6 +1,2 @@
-<<<<<<< HEAD
-efwd
-=======
 Initial content
 wqdc
->>>>>>> source/main
