@@ -1,0 +1,47 @@
+name: Sync Repositories
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_repo:
+        description: "Source GitHub repository in the format owner/repo"
+        required: true
+      source_branch:
+        description: "Branch in the source repository to sync from"
+        required: true
+      target_branch:
+        description: "Branch in the current repository to apply changes to"
+        required: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout the target repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}
+          ref: ${{ env.DEFAULT_BRANCH }}
+          token: ${{ secrets.AUTO_BACKPORT_TOKEN }}
+          fetch-depth: 0 # Fetch all history for all tags and branches
+
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: "3.x"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install GitPython PyGithub
+
+      - name: Run python script
+        env:
+          AUTO_BACKPORT_TOKEN: ${{ secrets.AUTO_BACKPORT_TOKEN }}
+        run: |
+          python .github/scripts/sync_repositories.py \
+            --target-repo ${{ github.repository }} \
+            --source-repo ${{ github.event.inputs.source_repo }} \
+            --target-branch ${{ github.event.inputs.target_branch }} \
+            --source-branch ${{ github.event.inputs.source_branch }}
