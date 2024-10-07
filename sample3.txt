@@ -1,2 +1,6 @@
+<<<<<<< HEAD
 teste2e
+=======
+testwedvfdv
+>>>>>>> source/main
 test2
