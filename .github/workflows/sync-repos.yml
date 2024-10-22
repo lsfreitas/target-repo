@@ -26,6 +26,12 @@ jobs:
           token: ${{ secrets.AUTO_BACKPORT_TOKEN }}
           fetch-depth: 0 # Fetch all history for all tags and branches
 
+      # Set Git user identity
+      - name: Configure Git user
+        run: |
+          git config --global user.name "GitHub Action"
+          git config --global user.email "action@github.com"
+
       - name: Set up Python
         uses: actions/setup-python@v3
         with:
