@@ -84,8 +84,20 @@ def sync_repos(args):
             repo.git.push('origin', sync_branch_name, force=True)
             
             # Step 8: Create a pull request with the merge
-            pr_title = f"Merge changes from {args.source_branch} to {args.target_branch}"
-            pr_body = f"Merging changes from `{args.source_branch}` branch into `{args.target_branch}` branch."
+            pr_title = f"Sync repositories: from {args.source_repo} into {args.target_repo}"
+            
+            # Step 8.1: Gather commits from the sync branch, excluding merges
+            commit_log = repo.git.log(f'{args.target_branch}..{sync_branch_name}', '--no-merges', '--pretty=format:%h %s')
+            # Create links to the commits in the pull request
+            commit_links = []
+            for line in commit_log.splitlines():
+                commit_hash, commit_message = line.split(' ', 1)
+                commit_links.append(f"[{commit_hash}](https://github.com/{args.target_repo}/commit/{commit_hash}) : {commit_message}")
+            
+            # Create a markdown list of commits
+            commit_list = "\n".join(commit_links)
+            pr_body = f"Applying changes from `{args.source_repo}`(branch: `{args.source_branch}`) into `{args.target_repo}`(branch: `{args.source_branch}`).\n\n### List of commits:\n{commit_list}"
+
             try:
                 pull_request = github_repo.create_pull(
                     title=pr_title,
@@ -100,6 +112,8 @@ def sync_repos(args):
 
     except Exception as e:
         logging.error(f"An error occurred: {e}")
+
+
 
 
 if __name__ == "__main__":
