@@ -35,10 +35,21 @@ def sync_repos(args):
             repo.create_remote('source', f'https://github.com/{args.source_repo}.git')
             logging.info(f"Added source repository '{args.source_repo}' as a remote.")
 
-            # Step 4: Checkout the target branch and create the sync branch
+            # Step 4: Checkout the target branch
             logging.info(f"Checking out target branch '{args.target_branch}'.")
             repo.git.checkout(args.target_branch)
-            
+
+            # Step 4.1: Fetch the latest commit from the source branch
+            logging.info(f"Fetching latest commit from source branch '{args.source_branch}'.")
+            repo.git.fetch('source', args.source_branch)
+            source_commit = repo.git.rev_parse(f'source/{args.source_branch}')
+
+            # Step 4.2: Check if the commit is already in the target branch
+            logging.info(f"Checking if the commit {source_commit} exists in the target branch '{args.target_branch}'.")
+            if source_commit in repo.git.log(args.target_branch, '--pretty=format:%H').splitlines():
+                logging.info("Repositories are synced. Nothing to do.")
+                return  # Exit the function early if the commit is already in the target branch
+
             # Generate a unique sync branch name (timestamp + latest commit SHA)
             timestamp = datetime.now().strftime('%Y%m%d-%H%M%S')
             sync_branch_name = f"sync-branch-{timestamp}"
@@ -89,6 +100,7 @@ def sync_repos(args):
 
     except Exception as e:
         logging.error(f"An error occurred: {e}")
+
 
 if __name__ == "__main__":
     args = parse_args()
