@@ -1,3 +1,7 @@
 test4
 testttt
+<<<<<<< HEAD
 rrss
+=======
+rrr
+>>>>>>> source/main
