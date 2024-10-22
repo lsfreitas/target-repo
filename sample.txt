@@ -2,8 +2,4 @@ test4
 testttt
 rrr
 ee
-<<<<<<< HEAD
-a
-=======
 o
->>>>>>> source/main
