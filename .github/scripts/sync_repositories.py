@@ -48,7 +48,7 @@ def sync_repos(args):
             logging.info(f"Latest commit from source repo: '{source_commit}'")
 
             # Check if the commit is already in the target branch
-            if source_commit in repo.git.log(args.target_branch, '--pretty=format:%H').splitlines():
+            if source_commit in repo.git.log(args.target_branch, '--pretty=format:%h').splitlines():
                 logging.info("Repositories are in sync. Skipping sync action.")
                 return  # Exit the function early if the commit is already in the target branch
 
