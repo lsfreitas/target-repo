@@ -44,7 +44,7 @@ jobs:
 
       - name: Run python script
         env:
-          AUTO_BACKPORT_TOKEN: ${{ secrets.AUTO_BACKPORT_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.AUTO_BACKPORT_TOKEN }}
         run: |
           python .github/scripts/sync_repositories.py \
             --target-repo ${{ github.repository }} \
