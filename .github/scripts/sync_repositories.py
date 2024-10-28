@@ -35,19 +35,18 @@ def sync_repos(args):
             repo.create_remote('source', f'https://github.com/{args.source_repo}.git')
             logging.info(f"Added source repository '{args.source_repo}' as a remote.")
 
-            # Step 4: Checkout the target branch
+            # Step 4: Checkout the target branch and check if repos are in sync
             logging.info(f"Checking out target branch '{args.target_branch}'.")
             repo.git.checkout(args.target_branch)
 
-            # Step 4.1: Fetch the latest commit from the source branch
+            # Fetch the latest commit from the source branch
             logging.info(f"Fetching latest commit from source branch '{args.source_branch}'.")
             repo.git.fetch('source', args.source_branch)
             source_commit = repo.git.rev_parse(f'source/{args.source_branch}')
 
-            # Step 4.2: Check if the commit is already in the target branch
-            logging.info(f"Checking if the commit {source_commit} exists in the target branch '{args.target_branch}'.")
+            # Check if the commit is already in the target branch
             if source_commit in repo.git.log(args.target_branch, '--pretty=format:%H').splitlines():
-                logging.info("Repositories are synced. Nothing to do.")
+                logging.info("Repositories are in sync. Skipping sync action.")
                 return  # Exit the function early if the commit is already in the target branch
 
             # Generate a unique sync branch name (timestamp + latest commit SHA)
@@ -86,7 +85,7 @@ def sync_repos(args):
             # Step 8: Create a pull request with the merge
             pr_title = f"Sync repositories: from {args.source_repo} into {args.target_repo}"
             
-            # Step 8.1: Gather commits from the sync branch, excluding merges
+            # Gather commits from the sync branch
             commit_log = repo.git.log(f'{args.target_branch}..{sync_branch_name}', '--no-merges', '--pretty=format:%h %s')
             # Create links to the commits in the pull request
             commit_links = []
@@ -112,9 +111,6 @@ def sync_repos(args):
 
     except Exception as e:
         logging.error(f"An error occurred: {e}")
-
-
-
 
 if __name__ == "__main__":
     args = parse_args()
