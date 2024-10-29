@@ -65,10 +65,6 @@ def sync_repos(args):
             logging.info(f"Creating new sync branch '{sync_branch_name}' from '{args.target_branch}'.")
             repo.git.checkout('-b', sync_branch_name)
 
-            # Step 5: Fetch the source branch from the source repository
-            logging.info(f"Fetching changes from source branch '{args.source_branch}' in source repository.")
-            repo.git.fetch('source', args.source_branch)
-
             # Step 6: Merge the source branch into the sync branch
             is_draft = False
             try:
