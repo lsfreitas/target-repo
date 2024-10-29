@@ -10,7 +10,7 @@ on:
         description: "Branch in the source repository to sync from. Example: master"
         required: true
       target_branch:
-        description: "Branch in the current repository to apply changes to. Example: master"
+        description: "Branch in the current repository to apply changes to. Example: next-enterprise"
         required: true
 
 jobs:

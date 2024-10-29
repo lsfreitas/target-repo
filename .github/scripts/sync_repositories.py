@@ -14,7 +14,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--target-repo', type=str, required=True, help='The GitHub repository where changes will be applied. Example: scylladb/scylla-pkg')
     parser.add_argument('--source-repo', type=str, required=True, help='The GitHub repository from which changes will be merged. Example: scylladb/scylla-enterprise-pkg')
-    parser.add_argument('--target-branch', type=str, required=True, help='The branch in the target repository where changes will be merged. Example: master')
+    parser.add_argument('--target-branch', type=str, required=True, help='The branch in the target repository where changes will be merged. Example: next-enterprise')
     parser.add_argument('--source-branch', type=str, required=True, help='The branch in the source repository from which changes will be merged. Example: master')
     return parser.parse_args()
 
