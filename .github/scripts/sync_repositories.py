@@ -58,6 +58,7 @@ def sync_repos(args):
 
             sync_branch_name = f"sync-branch-{source_commit}"
 
+            # Step 5: Check if there's any PR with the latest changes and created new branch for sync if there's none
             open_prs = github_repo.get_pulls(state='open', head=f"{args.target_repo.split('/')[0]}:{sync_branch_name}", base=args.target_branch)
             if open_prs.totalCount > 0:
                 logging.info(f"There's already a PR open for the latest changes from {args.source_repo}. Check it here: {open_prs[0].html_url}")
