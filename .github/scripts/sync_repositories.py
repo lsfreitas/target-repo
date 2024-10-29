@@ -12,8 +12,8 @@ logging.basicConfig(level=logging.INFO, format='%(levelname)s - %(message)s')
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--target-repo', type=str, required=True, help='The GitHub repository where changes will be applied. Example: scylladb/scylla-pkg')
-    parser.add_argument('--source-repo', type=str, required=True, help='The GitHub repository from which changes will be merged. Example: scylladb/scylla-enterprise-pkg')
+    parser.add_argument('--target-repo', type=str, required=True, help='The GitHub repository where changes will be applied. Example: scylladb/scylla-enterprise-pkg')
+    parser.add_argument('--source-repo', type=str, required=True, help='The GitHub repository from which changes will be merged. Example: scylladb/scylla-pkg')
     parser.add_argument('--target-branch', type=str, required=True, help='The branch in the target repository where changes will be merged. Example: next-enterprise')
     parser.add_argument('--source-branch', type=str, required=True, help='The branch in the source repository from which changes will be merged. Example: master')
     return parser.parse_args()
@@ -48,17 +48,19 @@ def sync_repos(args):
             logging.info(f"Latest commit from source repo: '{source_commit}'")
 
             # Check if the commit is already in the target branch
-            if source_commit in repo.git.log(args.target_branch, '--pretty=format:%h').splitlines():
+            try:
+                # If source_commit is an ancestor of the latest commit in target_branch, this will return 0
+                repo.git.merge_base('--is-ancestor', source_commit, args.target_branch)
                 logging.info("Repositories are in sync. Skipping sync action.")
                 return  # Exit the function early if the commit is already in the target branch
+            except:
+                logging.info("New commits available. Proceeding with sync.")
 
-            # sync branch name (sync-branch- + latest commit SHA)
             sync_branch_name = f"sync-branch-{source_commit}"
 
             open_prs = github_repo.get_pulls(state='open', head=f"{args.target_repo.split('/')[0]}:{sync_branch_name}", base=args.target_branch)
             if open_prs.totalCount > 0:
-                pr_url = open_prs[0].html_url  # Get the URL of the first (and only) matching open PR
-                logging.info(f"There's already a PR open for the latest changes from {args.source_repo}. Check it here: {pr_url}")
+                logging.info(f"There's already a PR open for the latest changes from {args.source_repo}. Check it here: {open_prs[0].html_url}")
                 return  # Exit the function early if there's already a PR
 
             # Create a new branch for the sync
