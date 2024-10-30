@@ -53,7 +53,7 @@ def sync_repos(args):
                 repo.git.merge_base('--is-ancestor', source_commit, args.target_branch)
                 logging.info("Repositories are in sync. Skipping sync action.")
                 return  # Exit the function early if the commit is already in the target branch
-            except:
+            except GitCommandError:
                 logging.info("New commits available. Proceeding with sync.")
 
             sync_branch_name = f"sync-branch-{source_commit}"
