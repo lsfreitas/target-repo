@@ -21,7 +21,7 @@ on:
         default: false
         type: boolean
   schedule:
-    - cron: "0 9 * * *" # Runs at 9:00 am UTC daily
+    - cron: "15 16 * * *" # Runs at 9:00 am UTC daily
 
 jobs:
   # Job for scheduled or simulated cron runs
