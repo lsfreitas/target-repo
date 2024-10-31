@@ -5,20 +5,21 @@ on:
     inputs:
       target_repo:
         description: "Target GitHub repository in the format owner/repo"
-        required: true
+        required: false
       source_repo:
         description: "Source GitHub repository in the format owner/repo"
-        required: true
+        required: false
       source_branch:
         description: "Branch in the source repository to sync from. Example: main"
-        required: true
+        required: false
       target_branch:
         description: "Branch in the target repository to apply changes to. Example: main"
-        required: true
+        required: false
       simulate_cron:
         description: "Simulate the cron job behavior (true or false)"
         required: false
-        default: "false"
+        default: false
+        type: boolean
   schedule:
     - cron: "0 9 * * *" # Runs at 9:00 am UTC daily
 
