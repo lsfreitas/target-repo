@@ -3,6 +3,9 @@ name: Sync Repositories
 on:
   workflow_dispatch:
     inputs:
+      target_repo:
+        description: "Target GitHub repository in the format owner/repo"
+        required: true
       source_repo:
         description: "Source GitHub repository in the format owner/repo"
         required: true
@@ -12,6 +15,8 @@ on:
       target_branch:
         description: "Branch in the current repository to apply changes to. Example: next-enterprise"
         required: true
+  schedule:
+    - cron: "0 9 * * *" # Runs at 9:00 am UTC daily
 
 jobs:
   sync:
@@ -47,7 +52,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.AUTO_BACKPORT_TOKEN }}
         run: |
           python .github/scripts/sync_repositories.py \
-            --target-repo ${{ github.repository }} \
+            --target-repo ${{ github.event.inputs.target_repo }} \
             --source-repo ${{ github.event.inputs.source_repo }} \
             --target-branch ${{ github.event.inputs.target_branch }} \
             --source-branch ${{ github.event.inputs.source_branch }}
