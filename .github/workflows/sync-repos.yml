@@ -10,10 +10,10 @@ on:
         description: "Source GitHub repository in the format owner/repo"
         required: true
       source_branch:
-        description: "Branch in the source repository to sync from. Example: master"
+        description: "Branch in the source repository to sync from. Example: main"
         required: true
       target_branch:
-        description: "Branch in the target repository to apply changes to. Example: next-enterprise"
+        description: "Branch in the target repository to apply changes to. Example: main"
         required: true
       simulate_cron:
         description: "Simulate the cron job behavior (true or false)"
@@ -25,6 +25,10 @@ on:
 jobs:
   sync:
     runs-on: ubuntu-latest
+
+    # Only apply the matrix when the workflow is triggered by a schedule or `simulate_cron` is set to true
+    if: ${{ github.event_name == 'schedule' || github.event.inputs.simulate_cron == 'true' }}
+
     strategy:
       matrix:
         include:
@@ -47,7 +51,6 @@ jobs:
           token: ${{ secrets.AUTO_BACKPORT_TOKEN }}
           fetch-depth: 0 # Fetch all history for all tags and branches
 
-      # Set Git user identity
       - name: Configure Git user
         run: |
           git config --global user.name "GitHub Action"
@@ -63,7 +66,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install GitPython PyGithub
 
-      # Simulated cron run with matrix values if simulate_cron is true
+      # Use matrix values if triggered by cron or simulate_cron is true
       - name: Run python script with matrix values
         if: ${{ github.event_name == 'schedule' || github.event.inputs.simulate_cron == 'true' }}
         env:
@@ -75,7 +78,7 @@ jobs:
             --target-branch ${{ matrix.target_branch }} \
             --source-branch ${{ matrix.source_branch }}
 
-      # Run this step only if triggered manually with all required inputs
+      # Run with manual inputs if not using matrix
       - name: Run python script with manual inputs
         if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.simulate_cron != 'true' }}
         env:
