@@ -36,10 +36,6 @@ jobs:
             source_repo: "lsfreitas/source"
             target_branch: "main"
             source_branch: "main"
-          - target_repo: "lsfreitas/target-repo"
-            source_repo: "lsfreitas/source-repo"
-            target_branch: "main"
-            source_branch: "main"
       fail-fast: false
 
     steps:
