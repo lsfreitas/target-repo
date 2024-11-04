@@ -38,11 +38,6 @@ jobs:
             source_repo: "lsfreitas/source-repo"
             target_branch: "main"
             source_branch: "main"
-          # This entry allows manual input
-          - target_repo: ${{ github.event.inputs.target_repo }}
-            source_repo: ${{ github.event.inputs.source_repo }}
-            target_branch: ${{ github.event.inputs.target_branch }}
-            source_branch: ${{ github.event.inputs.source_branch }}
 
     steps:
       # Checkout the target repository
@@ -72,7 +67,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install GitPython PyGithub
 
-      # Set environment variables based on run type
+      # Determine which parameters to use
       - name: Set sync parameters
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ github.event.inputs.simulate_cron }}" == 'false' ]]; then
@@ -88,6 +83,14 @@ jobs:
             echo "TARGET_BRANCH=${{ matrix.target_branch }}" >> $GITHUB_ENV
             echo "SOURCE_BRANCH=${{ matrix.source_branch }}" >> $GITHUB_ENV
           fi
+
+      # Check environment variables
+      - name: Debug environment variables
+        run: |
+          echo "TARGET_REPO=$TARGET_REPO"
+          echo "SOURCE_REPO=$SOURCE_REPO"
+          echo "TARGET_BRANCH=$TARGET_BRANCH"
+          echo "SOURCE_BRANCH=$SOURCE_BRANCH"
 
       # Run python script with determined parameters
       - name: Run python script
