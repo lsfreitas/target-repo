@@ -21,24 +21,27 @@ on:
         default: false
         type: boolean
   schedule:
-    - cron: "15 16 * * *" # Runs at 9:00 am UTC daily
+    - cron: "0 9 * * *" # Runs at 9:00 am UTC daily
 
 jobs:
-  # Job for scheduled or simulated cron runs
-  sync_with_matrix:
+  sync:
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'schedule' || github.event.inputs.simulate_cron == 'true' }}
 
     strategy:
       matrix:
         include:
+          # Define repository pairs for scheduled runs
           - target_repo: "lsfreitas/target"
             source_repo: "lsfreitas/source"
             target_branch: "main"
             source_branch: "main"
-      fail-fast: false
+          - target_repo: "lsfreitas/target-repo"
+            source_repo: "lsfreitas/source-repo"
+            target_branch: "main"
+            source_branch: "main"
 
     steps:
+      # Checkout the target repository
       - name: Checkout the target repository
         uses: actions/checkout@v4
         with:
@@ -47,66 +50,49 @@ jobs:
           token: ${{ secrets.AUTO_BACKPORT_TOKEN }}
           fetch-depth: 0
 
+      # Configure Git user
       - name: Configure Git user
         run: |
           git config --global user.name "GitHub Action"
           git config --global user.email "action@github.com"
 
+      # Set up Python
       - name: Set up Python
         uses: actions/setup-python@v3
         with:
           python-version: "3.x"
 
+      # Install dependencies
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install GitPython PyGithub
 
-      - name: Run python script with matrix values
+      # Set sync parameters based on event type
+      - name: Set sync parameters
+        id: sync_params
+        run: |
+          if [[ "${{ github.event_name }}" == "schedule" || "${{ github.event.inputs.simulate_cron }}" == "true" ]]; then
+            echo "Using matrix parameters"
+            echo "TARGET_REPO=${{ matrix.target_repo }}" >> $GITHUB_ENV
+            echo "SOURCE_REPO=${{ matrix.source_repo }}" >> $GITHUB_ENV
+            echo "TARGET_BRANCH=${{ matrix.target_branch }}" >> $GITHUB_ENV
+            echo "SOURCE_BRANCH=${{ matrix.source_branch }}" >> $GITHUB_ENV
+          else
+            echo "Using input parameters"
+            echo "TARGET_REPO=${{ github.event.inputs.target_repo }}" >> $GITHUB_ENV
+            echo "SOURCE_REPO=${{ github.event.inputs.source_repo }}" >> $GITHUB_ENV
+            echo "TARGET_BRANCH=${{ github.event.inputs.target_branch }}" >> $GITHUB_ENV
+            echo "SOURCE_BRANCH=${{ github.event.inputs.source_branch }}" >> $GITHUB_ENV
+          fi
+
+      # Run python script with determined parameters
+      - name: Run python script
         env:
           GITHUB_TOKEN: ${{ secrets.AUTO_BACKPORT_TOKEN }}
         run: |
           python .github/scripts/sync_repositories.py \
-            --target-repo ${{ matrix.target_repo }} \
-            --source-repo ${{ matrix.source_repo }} \
-            --target-branch ${{ matrix.target_branch }} \
-            --source-branch ${{ matrix.source_branch }}
-
-  # Separate job for manual runs with provided inputs
-  sync_manual:
-    runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.simulate_cron != 'true' }}
-
-    steps:
-      - name: Checkout the target repository
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ github.repository }}
-          ref: ${{ env.DEFAULT_BRANCH }}
-          token: ${{ secrets.AUTO_BACKPORT_TOKEN }}
-          fetch-depth: 0
-
-      - name: Configure Git user
-        run: |
-          git config --global user.name "GitHub Action"
-          git config --global user.email "action@github.com"
-
-      - name: Set up Python
-        uses: actions/setup-python@v3
-        with:
-          python-version: "3.x"
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install GitPython PyGithub
-
-      - name: Run python script with manual inputs
-        env:
-          GITHUB_TOKEN: ${{ secrets.AUTO_BACKPORT_TOKEN }}
-        run: |
-          python .github/scripts/sync_repositories.py \
-            --target-repo ${{ github.event.inputs.target_repo }} \
-            --source-repo ${{ github.event.inputs.source_repo }} \
-            --target-branch ${{ github.event.inputs.target_branch }} \
-            --source-branch ${{ github.event.inputs.source_branch }}
+            --target-repo $TARGET_REPO \
+            --source-repo $SOURCE_REPO \
+            --target-branch $TARGET_BRANCH \
+            --source-branch $SOURCE_BRANCH
