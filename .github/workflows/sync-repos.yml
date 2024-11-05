@@ -16,7 +16,7 @@ on:
         description: "Branch in the target repository to apply changes to. Example: next-enterprise"
         required: false
       simulate_cron:
-        description: "Simulate the cron job behavior (true or false)"
+        description: "Simulate the cron job behavior (manual innputs will be ignored when true)"
         required: false
         default: false
         type: boolean
