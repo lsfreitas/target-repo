@@ -27,12 +27,6 @@ jobs:
   sync_repos:
     runs-on: ubuntu-latest
 
-    # Run the job either when it's a cron event or simulate_cron is true, or for manual input cases.
-    if: |
-      github.event_name == 'schedule' || 
-      github.event.inputs.simulate_cron == 'true' || 
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.simulate_cron != 'true')
-
     strategy:
       matrix:
         include:
