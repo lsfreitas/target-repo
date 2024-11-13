@@ -31,10 +31,10 @@ def sync_repos(args):
         with tempfile.TemporaryDirectory() as repo_path:
             # Step 2: Clone the target repository
             logging.info(f"Cloning target repository '{args.target_repo}' into temporary directory.")
-            repo = Repo.clone_from(f'https://github.com/{args.target_repo}.git', repo_path)
+            repo = Repo.clone_from(f'https://{github_token}@github.com/{args.target_repo}.git', repo_path)
 
             # Step 3: Add the source repository as a remote
-            repo.create_remote('source', f'https://github.com/{args.source_repo}.git')
+            repo.create_remote('source', f'https://{github_token}@github.com/{args.source_repo}.git')
             logging.info(f"Added source repository '{args.source_repo}' as a remote.")
 
             # Step 4: Checkout the target branch and check if repos are in sync
@@ -103,7 +103,7 @@ def sync_repos(args):
             
             # Create a markdown list of commits
             commit_list = "\n".join(commit_links)
-            pr_body = f"Applying changes from `{args.source_repo}`(branch: `{args.source_branch}`) into `{args.target_repo}`(branch: `{args.source_branch}`).\n\n### List of commits:\n{commit_list}"
+            pr_body = f"Applying changes from `{args.source_repo}`(branch: `{args.source_branch}`) into `{args.target_repo}`(branch: `{args.target_branch}`).\n\n### List of commits:\n{commit_list}"
 
             try:
                 pull_request = github_repo.create_pull(
