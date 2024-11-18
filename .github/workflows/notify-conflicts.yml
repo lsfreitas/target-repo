@@ -27,7 +27,6 @@ jobs:
               const hasConflictLabel = pr.labels.some(label => label.name === conflictLabel);
               if (!hasConflictLabel) continue;
               const updatedDate = new Date(pr.updated_at);
-              if (updatedDate >= threeDaysAgo) continue;
               if (pr.assignee === null) continue;
               const assignee = pr.assignee.login;
               if (assignee) {
