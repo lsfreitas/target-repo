@@ -18,7 +18,7 @@ jobs:
               state: 'open',
               per_page: 100
             });
-            const branchPrefix = 'lsfreitas-';
+            const branchPrefix = 'main';
             const threeDaysAgo = new Date();
             const conflictLabel = 'conflicts';          
             threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
