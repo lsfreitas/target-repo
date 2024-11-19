@@ -2,4 +2,8 @@ r3ref
 test
 second test
 another test
+<<<<<<< HEAD
 test targetrrrreee
+=======
+test source
+>>>>>>> source/main
